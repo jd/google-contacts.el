@@ -1,6 +1,6 @@
 ;;; google-oauth.el --- Utility functions and variables for Google OAuth
 
-;; Copyright (C) Julien Danjou <julien@danjou.info>
+;; Copyright © 2011 Julien Danjou <julien@danjou.info>
 
 ;; Author: Julien Danjou <julien@danjou.info>
 ;; Keywords: comm

@@ -1,6 +1,6 @@
 ;;; google-contacts-gnus.el --- Support for Google Contacts in Gnus
 
-;; Copyright (C) Julien Danjou <julien@danjou.info>
+;; Copyright © 2011 Julien Danjou <julien@danjou.info>
 
 ;; Author: Julien Danjou <julien@danjou.info>
 ;; Keywords: comm

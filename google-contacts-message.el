@@ -1,6 +1,6 @@
 ;;; google-contacts-message.el --- Support for Google Contacts in message-mode
 
-;; Copyright (C) Julien Danjou <julien@danjou.info>
+;; Copyright © 2011 Julien Danjou <julien@danjou.info>
 
 ;; Author: Julien Danjou <julien@danjou.info>
 ;; Keywords: comm
