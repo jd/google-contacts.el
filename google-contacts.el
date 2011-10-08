@@ -259,6 +259,10 @@ If VALUE is not specified, we use the node value as a string."
   "Face used to draw the relation name."
   :group 'google-contacts)
 
+(defface google-contacts-birthday nil
+  "Face used to draw the relation name."
+  :group 'google-contacts)
+
 (defun google-contacts-margin-element ()
   "Return a string to insert to make a margin."
   (concat (propertize " " 'display `(space . (:width (,google-contacts-margin-width)))) " "))
