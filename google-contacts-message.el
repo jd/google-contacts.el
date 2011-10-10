@@ -28,6 +28,8 @@
 
 ;;; Code:
 
+(require 'google-contacts)
+
 (defun google-contacts-message-complete-function ()
   "Function used in `completion-at-point-functions' in `message-mode'."
   (let ((mail-abbrev-mode-regexp
