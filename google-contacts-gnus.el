@@ -28,6 +28,8 @@
 
 ;;; Code:
 
+(require 'gnus-art)
+
 (defun google-contacts-gnus-get-name-email ()
   "Get name and email address from Gnus message."
   (when (gnus-alive-p)
