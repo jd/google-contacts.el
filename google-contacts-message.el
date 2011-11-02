@@ -28,7 +28,8 @@
 
 ;;; Code:
 
-(require 'google-contacts)
+(eval-and-compile
+  (require 'google-contacts))
 
 (defun google-contacts-message-complete-function ()
   "Function used in `completion-at-point-functions' in `message-mode'."
