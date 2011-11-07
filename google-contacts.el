@@ -31,6 +31,7 @@
 (require 'url-cache)
 (require 'widget)
 (require 'oauth2)
+(require 'xml)
 
 (defgroup google-contacts nil
   "Google Contacts.")
