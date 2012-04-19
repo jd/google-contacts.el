@@ -57,7 +57,7 @@
                        (if (string= fullname "")
                            (cdr email)
                          (concat fullname " <" (cdr email) ">"))))))
-    (list start end choices)))
+    (list start end (completion-table-case-fold choices))))
 
 (add-hook 'message-mode-hook
           (lambda ()
