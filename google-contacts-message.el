@@ -31,6 +31,11 @@
 (eval-and-compile
   (require 'google-contacts))
 
+(defcustom google-contacts-message-use-primary t
+  "Whether completion should only propose primary e-mail address.
+If set to nil, you'll have to chose yourself the e-mail address on completion."
+  :type 'boolean)
+
 (defun google-contacts-message-complete-function ()
   "Function used in `completion-at-point-functions' in `message-mode'."
   (let ((mail-abbrev-mode-regexp
@@ -52,12 +57,14 @@
              (fullname (xml-node-child-string (nth 0 (xml-get-children name-value 'gd:fullName))))
              (emails (google-contacts-build-node-list contact 'gd:email
                                                       (xml-get-attribute child 'address))))
-        (dolist (email emails)
+        (dolist (email (if (and emails google-contacts-message-use-primary)
+                           (list (car emails))
+                         emails))
           (add-to-list 'choices
                        (if (string= fullname "")
                            (cdr email)
                          (concat fullname " <" (cdr email) ">"))))))
-    (list start end (completion-table-case-fold choices))))
+  (list start end (completion-table-case-fold choices))))
 
 (add-hook 'message-mode-hook
           (lambda ()
