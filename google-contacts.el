@@ -285,6 +285,21 @@ If VALUE is not specified, we use the node value as a string."
       (google-contacts-mode)
       (current-buffer))))
 
+(defun google-contacts-get-photo (query-string)
+  "Retrieve one photo for QUERY-STRING.
+This returns raw data as a string"
+  (let ((token (google-contacts-oauth-token))
+        (google-contacts-max-result 1))
+    ;; Only get the first contact, so use `car'
+    (let ((contact (car (xml-get-children (google-contacts-data query-string token) 'entry))))
+      (when contact
+        (let ((photo-url (loop for link in (xml-get-children contact 'link)
+                               when (string= (xml-get-attribute link 'rel)
+                                             "http://schemas.google.com/contacts/2008/rel#photo")
+                               return (xml-get-attribute link 'href))))
+          (google-contacts-http-data
+           (google-contacts-url-retrieve photo-url token)))))))
+
 ;;;###autoload
 (defun google-contacts (&optional query-string force-refresh)
   (interactive
