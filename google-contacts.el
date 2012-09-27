@@ -119,11 +119,11 @@ I AM SERIOUS!")
                     (google-contacts-fetch query-string token)))
            (xml-parse-region (point-min) (point-max)))))
 
-(defun xml-node-rel-type (element)
+(defun xml-node-get-attribute-type (element attribute)
   "Return the relation type of ELEMENT.
 Usually work, home…"
-  (let ((attr (xml-get-attribute element 'rel)))
-    (capitalize (or (nth 1 (split-string attr  "#"))
+  (let ((attr (xml-get-attribute element attribute)))
+    (capitalize (or (nth 1 (split-string attr "#"))
                     attr))))
 
 (defun xml-node-children-or-string (node)
@@ -144,7 +144,7 @@ Usually work, home…"
 Return a list of value in format ((relation-type . value) … ).
 If VALUE is not specified, we use the node value as a string."
   `(loop for child in (xml-get-children ,node ,node-name)
-         collect (cons (xml-node-rel-type child)
+         collect (cons (xml-node-get-attribute-type child 'rel)
                        ,(or value '(xml-node-child-string child)))))
 
 (defvar google-contacts-mode-map
@@ -352,11 +352,9 @@ This returns raw data as a string"
                                                                         (xml-node-child-string
                                                                          (nth 0 (xml-get-children child 'gd:formattedAddress)))))
                      (instant-messaging (google-contacts-build-node-list contact 'gd:im
-                                                                         (cons (capitalize
-                                                                                (nth 1 (split-string
-                                                                                        (xml-get-attribute child 'protocol)
-                                                                                        "#")))
-                                                                               (cdr (assoc 'address (xml-node-attributes child))))))
+                                                                         (cons
+                                                                          (xml-node-get-attribute-type child 'protocol)
+                                                                          (cdr (assoc 'address (xml-node-attributes child))))))
                      (photo (ignore-errors
                               (create-image
                                (google-contacts-http-data
