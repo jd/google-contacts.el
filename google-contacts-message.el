@@ -31,6 +31,13 @@
 (eval-and-compile
   (require 'google-contacts))
 
+(defvar google-contacts-data-all-cached nil
+  "Holds all cached google contacts XML data")
+
+(defvar google-contacts-data-all-cached-time nil
+  "Time that cached data in `google-contacts-data-all-cached'
+was cached.")
+
 (defcustom google-contacts-message-use-primary t
   "Whether completion should only propose primary e-mail address.
 If set to nil, you'll have to chose yourself the e-mail address on completion."
@@ -43,6 +50,15 @@ If set to nil, you'll have to chose yourself the e-mail address on completion."
     (when (mail-abbrev-in-expansion-header-p)
       (google-contacts-complete-name))))
 
+(defun google-contacts-data-all ()
+  "Return possibly cached complete google contatcts XML data."
+  (if (or (null google-contacts-data-all-cached)
+          (time-less-p (seconds-to-time google-contacts-expire-time)
+                       (time-since google-contacts-data-all-cached-time)))
+      (setq google-contacts-data-all-cached (google-contacts-data)
+            google-contacts-data-all-cached-time (current-time)))
+  google-contacts-data-all-cached)
+
 (defun google-contacts-complete-name ()
   "Complete text at START with a user name and email."
   (let ((end (point))
@@ -50,7 +66,7 @@ If set to nil, you'll have to chose yourself the e-mail address on completion."
                  (re-search-backward "\\(\\`\\|[\n:,]\\)[ \t]*")
                  (goto-char (match-end 0))
                  (point)))
-        (contacts (xml-get-children (google-contacts-data) 'entry))
+        (contacts (xml-get-children (google-contacts-data-all) 'entry))
         choices)
     (dolist (contact contacts)
       (let* ((name-value (nth 0 (xml-get-children contact 'gd:name)))
