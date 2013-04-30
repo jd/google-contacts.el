@@ -4,6 +4,7 @@
 
 ;; Author: Julien Danjou <julien@danjou.info>
 ;; Keywords: comm
+;; Package-Requires: ((oauth2))
 
 ;; This file is NOT part of GNU Emacs.
 
