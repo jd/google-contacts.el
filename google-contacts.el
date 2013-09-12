@@ -316,6 +316,133 @@ This returns raw data as a string"
           (google-contacts-http-data
            (google-contacts-url-retrieve photo-url token)))))))
 
+(defun google-contacts--insert-data (contacts token)
+  (if (not contacts)
+      ;; No contacts, insert a string and return nil
+      (insert "No result.")
+    (print contacts (get-buffer-create "*contacts-data*"))
+    (dolist (contact contacts)
+      (let* ((name-value (nth 0 (xml-get-children contact 'gd:name)))
+             (fullname (xml-node-child-string (nth 0 (xml-get-children name-value 'gd:fullName))))
+             (givenname (xml-node-child-string (nth 0 (xml-get-children name-value 'gd:givenName))))
+             (familyname (xml-node-child-string (nth 0 (xml-get-children name-value 'gd:familyName))))
+
+             (nickname (xml-node-child-string (nth 0 (xml-get-children contact 'gContact:nickname))))
+             (birthday (xml-get-attribute-or-nil (nth 0 (xml-get-children contact 'gContact:birthday)) 'when))
+
+             (organization-value (nth 0 (xml-get-children contact 'gd:organization)))
+             (organization-name (xml-node-child-string (nth 0 (xml-get-children organization-value 'gd:orgName))))
+             (organization-title (xml-node-child-string (nth 0 (xml-get-children organization-value 'gd:orgTitle))))
+
+             (notes (xml-node-child-string (nth 0 (xml-get-children contact 'content))))
+             ;; Links
+             (links (xml-get-children contact 'link))
+             (photo-url (loop for link in links
+                              when (string= (xml-get-attribute link 'rel)
+                                            "http://schemas.google.com/contacts/2008/rel#photo")
+                              return (xml-get-attribute link 'href)))
+             ;; Multiple values
+             ;; Format is ((rel-type . data) (rel-type . data) … )
+             (events (google-contacts-build-node-list contact 'gContact:event
+                                                      (xml-get-attribute (nth 0 (xml-get-children child 'gd:when)) 'startTime)))
+             (emails (google-contacts-build-node-list contact 'gd:email
+                                                      (xml-get-attribute child 'address)))
+             (phones (google-contacts-build-node-list contact 'gd:phoneNumber))
+             (websites (google-contacts-build-node-list contact 'gContact:website
+                                                        (xml-get-attribute child 'href)))
+             (relations (google-contacts-build-node-list contact 'gContact:relation))
+             (postal-addresses (google-contacts-build-node-list contact 'gd:structuredPostalAddress
+                                                                (xml-node-child-string
+                                                                 (nth 0 (xml-get-children child 'gd:formattedAddress)))))
+             (instant-messaging (google-contacts-build-node-list contact 'gd:im
+                                                                 (cons
+                                                                  (xml-node-get-attribute-type child 'protocol)
+                                                                  (cdr (assoc 'address (xml-node-attributes child))))))
+             (photo (ignore-errors
+                      (create-image
+                       (google-contacts-http-data
+                        (google-contacts-url-retrieve photo-url token))
+                       'imagemagick t :width google-contacts-margin-width :ascent 'center) ))
+             (beg (point)))
+        (insert
+         (if photo
+             (concat (propertize " " 'display photo) " ")
+           (concat (propertize " " 'display `(space . (:width (,google-contacts-margin-width)
+                                                              :height (,google-contacts-margin-width)))) " "))
+         (propertize givenname 'face 'google-contacts-givenname) " "
+         (propertize familyname 'face 'google-contacts-familyname)
+         (if (string= nickname "")
+             ""
+           (concat " " (propertize (concat "(" nickname ")")  'face 'google-contacts-nickname))) "\n")
+
+        (unless (and (string= organization-name "")
+                     (string= organization-title ""))
+          (insert (google-contacts-margin-element) " "
+                  (propertize organization-title 'face 'google-contacts-organization-title)
+                  " @ "
+                  (propertize organization-name 'face 'google-contacts-organization-name) "\n"))
+
+        (google-contacts-insert-generic-list emails "E-mails"
+                                             (lambda (email)
+                                               (widget-create 'link
+                                                              :button-prefix "" :button-suffix ""
+                                                              :value (concat fullname " <" (cdr email) ">")
+                                                              :action (lambda (widget &optional _event)
+                                                                        (compose-mail (widget-value widget)))
+                                                              :tag (cdr email))
+                                               ;; Return "" to insert nothing, since widget-create do the insertion.
+                                               ""))
+
+        (google-contacts-insert-generic-list phones "Phones")
+        (google-contacts-insert-generic-list postal-addresses "Addresses"
+                                             (lambda (address)
+                                               (google-contacts-add-margin-to-text (cdr address)
+                                                                                   (+ 4 (length (car address))))))
+        (google-contacts-insert-generic-list websites "Websites"
+                                             (lambda (website)
+                                               (widget-create 'url-link
+                                                              :button-prefix "" :button-suffix ""
+                                                              (cdr website))
+                                               ""))
+        (google-contacts-insert-generic-list events "Events")
+        (google-contacts-insert-generic-list relations "Relations"
+                                             (lambda (relation)
+                                               (widget-create 'link
+                                                              :button-prefix "" :button-suffix ""
+                                                              :action (lambda (widget &optional _event)
+                                                                        (google-contacts (widget-value widget)))
+                                                              (cdr relation))
+                                               ""))
+        (google-contacts-insert-generic-list instant-messaging "Instant messaging"
+                                             (lambda (im)
+                                               (concat (cddr im) " (" (cadr im) ")")))
+
+        (when birthday
+          (insert "\n" (google-contacts-margin-element)
+                  (propertize "Birthday:" 'face 'google-contacts-header)
+                  " "
+                  (propertize birthday 'face 'google-contacts-birthday)
+                  "\n"))
+
+        (unless (string= notes "")
+          (insert "\n" (google-contacts-margin-element)
+                  (propertize "Notes:" 'face 'google-contacts-header)
+                  " "
+                  (propertize (google-contacts-add-margin-to-text notes 8)
+                              'face 'google-contacts-notes)
+                  "\n"))
+
+        ;; Insert properties
+        (put-text-property beg (1+ beg) 'google-contacts t)
+        (when emails
+          (put-text-property beg (point)
+                             'google-contacts-email (concat fullname " <" (cdr (nth 0 emails)) ">")))
+
+        (insert "\n" (propertize (make-string (window-width) google-contacts-separator-char) 'face 'google-contacts-separator) "\n")))
+    (goto-char (point-min)))
+  ;; Return contacts
+  contacts)
+
 ;;;###autoload
 (defun google-contacts (&optional query-string force-refresh)
   (interactive
@@ -331,132 +458,9 @@ This returns raw data as a string"
     (unless (eq (current-buffer) buffer)
       (switch-to-buffer-other-window buffer))
     (setq google-contacts-query-string query-string)
-    (let ((contacts (xml-get-children (google-contacts-data query-string token) 'entry)))
-      (if contacts
-          (progn
-            (dolist (contact contacts)
-              (let* ((name-value (nth 0 (xml-get-children contact 'gd:name)))
-                     (fullname (xml-node-child-string (nth 0 (xml-get-children name-value 'gd:fullName))))
-                     (givenname (xml-node-child-string (nth 0 (xml-get-children name-value 'gd:givenName))))
-                     (familyname (xml-node-child-string (nth 0 (xml-get-children name-value 'gd:familyName))))
-
-                     (nickname (xml-node-child-string (nth 0 (xml-get-children contact 'gContact:nickname))))
-                     (birthday (xml-get-attribute-or-nil (nth 0 (xml-get-children contact 'gContact:birthday)) 'when))
-
-                     (organization-value (nth 0 (xml-get-children contact 'gd:organization)))
-                     (organization-name (xml-node-child-string (nth 0 (xml-get-children organization-value 'gd:orgName))))
-                     (organization-title (xml-node-child-string (nth 0 (xml-get-children organization-value 'gd:orgTitle))))
-
-                     (notes (xml-node-child-string (nth 0 (xml-get-children contact 'content))))
-                     ;; Links
-                     (links (xml-get-children contact 'link))
-                     (photo-url (loop for link in links
-                                      when (string= (xml-get-attribute link 'rel)
-                                                    "http://schemas.google.com/contacts/2008/rel#photo")
-                                      return (xml-get-attribute link 'href)))
-                     ;; Multiple values
-                     ;; Format is ((rel-type . data) (rel-type . data) … )
-                     (events (google-contacts-build-node-list contact 'gContact:event
-                                                              (xml-get-attribute (nth 0 (xml-get-children child 'gd:when)) 'startTime)))
-                     (emails (google-contacts-build-node-list contact 'gd:email
-                                                              (xml-get-attribute child 'address)))
-                     (phones (google-contacts-build-node-list contact 'gd:phoneNumber))
-                     (websites (google-contacts-build-node-list contact 'gContact:website
-                                                                (xml-get-attribute child 'href)))
-                     (relations (google-contacts-build-node-list contact 'gContact:relation))
-                     (postal-addresses (google-contacts-build-node-list contact 'gd:structuredPostalAddress
-                                                                        (xml-node-child-string
-                                                                         (nth 0 (xml-get-children child 'gd:formattedAddress)))))
-                     (instant-messaging (google-contacts-build-node-list contact 'gd:im
-                                                                         (cons
-                                                                          (xml-node-get-attribute-type child 'protocol)
-                                                                          (cdr (assoc 'address (xml-node-attributes child))))))
-                     (photo (ignore-errors
-                              (create-image
-                               (google-contacts-http-data
-                                (google-contacts-url-retrieve photo-url token))
-                               'imagemagick t :width google-contacts-margin-width :ascent 'center) ))
-                     (beg (point)))
-                (insert
-                 (if photo
-                     (concat (propertize " " 'display photo) " ")
-                   (concat (propertize " " 'display `(space . (:width (,google-contacts-margin-width)
-                                                                      :height (,google-contacts-margin-width)))) " "))
-                 (propertize givenname 'face 'google-contacts-givenname) " "
-                 (propertize familyname 'face 'google-contacts-familyname)
-                 (if (string= nickname "")
-                     ""
-                   (concat " " (propertize (concat "(" nickname ")")  'face 'google-contacts-nickname))) "\n")
-
-                (unless (and (string= organization-name "")
-                             (string= organization-title ""))
-                  (insert (google-contacts-margin-element) " "
-                          (propertize organization-title 'face 'google-contacts-organization-title)
-                          " @ "
-                          (propertize organization-name 'face 'google-contacts-organization-name) "\n"))
-
-                (google-contacts-insert-generic-list emails "E-mails"
-                                                     (lambda (email)
-                                                       (widget-create 'link
-                                                                      :button-prefix "" :button-suffix ""
-                                                                      :value (concat fullname " <" (cdr email) ">")
-                                                                      :action (lambda (widget &optional _event)
-                                                                                (compose-mail (widget-value widget)))
-                                                                      :tag (cdr email))
-                                                       ;; Return "" to insert nothing, since widget-create do the insertion.
-                                                       ""))
-
-                (google-contacts-insert-generic-list phones "Phones")
-                (google-contacts-insert-generic-list postal-addresses "Addresses"
-                                                     (lambda (address)
-                                                       (google-contacts-add-margin-to-text (cdr address)
-                                                                                           (+ 4 (length (car address))))))
-                (google-contacts-insert-generic-list websites "Websites"
-                                                     (lambda (website)
-                                                       (widget-create 'url-link
-                                                                      :button-prefix "" :button-suffix ""
-                                                                      (cdr website))
-                                                       ""))
-                (google-contacts-insert-generic-list events "Events")
-                (google-contacts-insert-generic-list relations "Relations"
-                                                     (lambda (relation)
-                                                       (widget-create 'link
-                                                                      :button-prefix "" :button-suffix ""
-                                                                      :action (lambda (widget &optional _event)
-                                                                                (google-contacts (widget-value widget)))
-                                                                      (cdr relation))
-                                                       ""))
-                (google-contacts-insert-generic-list instant-messaging "Instant messaging"
-                                                     (lambda (im)
-                                                       (concat (cddr im) " (" (cadr im) ")")))
-
-                (when birthday
-                  (insert "\n" (google-contacts-margin-element)
-                          (propertize "Birthday:" 'face 'google-contacts-header)
-                          " "
-                          (propertize birthday 'face 'google-contacts-birthday)
-                          "\n"))
-
-                (unless (string= notes "")
-                  (insert "\n" (google-contacts-margin-element)
-                          (propertize "Notes:" 'face 'google-contacts-header)
-                          " "
-                          (propertize (google-contacts-add-margin-to-text notes 8)
-                                      'face 'google-contacts-notes)
-                          "\n"))
-
-                ;; Insert properties
-                (put-text-property beg (1+ beg) 'google-contacts t)
-                (when emails
-                  (put-text-property beg (point)
-                                     'google-contacts-email (concat fullname " <" (cdr (nth 0 emails)) ">")))
-
-                (insert "\n" (propertize (make-string (window-width) google-contacts-separator-char) 'face 'google-contacts-separator) "\n")))
-            (goto-char (point-min)))
-        ;; No contacts, insert a string and return nil
-        (insert "No result."))
-      ;; Return contacts
-      contacts)))
+    (google-contacts--insert-data (xml-get-children (google-contacts-data query-string token)
+                                                    'entry)
+                                  token)))
 
 (defun google-contacts-insert-generic-list (items title &optional get-value)
   "Insert a text for rendering ITEMS with TITLE.
@@ -472,6 +476,31 @@ otherwise just put the cdr of item."
                   (funcall get-value item)
                 (cdr item))
               "\n"))))
+
+;;;###autoload
+(defun google-contacts-async (&optional query-string force-refresh)
+  "Search Google Contacts for QUERY-STRING."
+  (interactive
+   (list (read-string "Look for: " (car google-contacts-history)
+                      'google-contacts-history)
+         current-prefix-arg))
+  (let ((google-contacts-expire-time (if force-refresh 0 google-contacts-expire-time)) ; TODO
+        (token (google-contacts-oauth-token)))
+    (setq google-contacts-query-string query-string)
+    (oauth2-url-retrieve token
+                         (google-contacts-build-full-feed-url query-string)
+                         #'(lambda (_status token)
+                             (let* ((buffer (current-buffer))
+                                    (contacts (with-temp-buffer
+                                                (insert (google-contacts-http-data buffer))
+                                                (xml-get-children
+                                                 (assoc 'feed (xml-parse-region
+                                                               (point-min) (point-max)))
+                                                 'entry)))
+                                    (inhibit-read-only t))
+                               (switch-to-buffer-other-window (google-contacts-make-buffer))
+                               (google-contacts--insert-data contacts token)))
+                         (list token))))
 
 (provide 'google-contacts)
 
