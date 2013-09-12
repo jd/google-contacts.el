@@ -316,6 +316,57 @@ This returns raw data as a string"
           (google-contacts-http-data
            (google-contacts-url-retrieve photo-url token)))))))
 
+(defun google-contacts-to-list (contacts &optional token)
+  "Convert CONTACTS to a list of alists.
+A valid TOKEN is required to retrieve photo properties."
+  (let (ret)
+    (dolist (contact contacts ret)
+      (let* ((name-value (nth 0 (xml-get-children contact 'gd:name)))
+             (organization-value (nth 0 (xml-get-children contact 'gd:organization)))
+             (links (xml-get-children contact 'link))
+             (photo-url (loop for link in links
+                              when (string= (xml-get-attribute link 'rel)
+                                            "http://schemas.google.com/contacts/2008/rel#photo")
+                              return (xml-get-attribute link 'href))))
+        (push `((fullname . ,(xml-node-child-string (nth 0 (xml-get-children name-value 'gd:fullName))))
+                (givenname . ,(xml-node-child-string (nth 0 (xml-get-children name-value 'gd:givenName))))
+                (familyname . ,(xml-node-child-string (nth 0 (xml-get-children name-value 'gd:familyName))))
+
+                (nickname . ,(xml-node-child-string (nth 0 (xml-get-children contact 'gContact:nickname))))
+                (birthday . ,(xml-get-attribute-or-nil (nth 0 (xml-get-children contact 'gContact:birthday)) 'when))
+
+                (organization-name . ,(xml-node-child-string (nth 0 (xml-get-children organization-value 'gd:orgName))))
+                (organization-title . ,(xml-node-child-string (nth 0 (xml-get-children organization-value 'gd:orgTitle))))
+
+                (notes . ,(xml-node-child-string (nth 0 (xml-get-children contact 'content))))
+                ;; Links
+                (links . ,links)
+                (photo-url . ,photo-url)
+                ;; Multiple values
+                ;; Format is ((rel-type . data) (rel-type . data) … )
+                (events . ,(google-contacts-build-node-list contact 'gContact:event
+                                                            (xml-get-attribute (nth 0 (xml-get-children child 'gd:when)) 'startTime)))
+                (emails . ,(google-contacts-build-node-list contact 'gd:email
+                                                            (xml-get-attribute child 'address)))
+                (phones . ,(google-contacts-build-node-list contact 'gd:phoneNumber))
+                (websites . ,(google-contacts-build-node-list contact 'gContact:website
+                                                              (xml-get-attribute child 'href)))
+                (relations . ,(google-contacts-build-node-list contact 'gContact:relation))
+                (postal-addresses . ,(google-contacts-build-node-list contact 'gd:structuredPostalAddress
+                                                                      (xml-node-child-string
+                                                                       (nth 0 (xml-get-children child 'gd:formattedAddress)))))
+                (instant-messaging . ,(google-contacts-build-node-list contact 'gd:im
+                                                                       (cons
+                                                                        (xml-node-get-attribute-type child 'protocol)
+                                                                        (cdr (assoc 'address (xml-node-attributes child))))))
+                (photo . ,(when token
+                            (ignore-errors
+                              (create-image
+                               (google-contacts-http-data
+                                (google-contacts-url-retrieve photo-url token))
+                               'imagemagick t :width google-contacts-margin-width :ascent 'center)))))
+              ret)))))
+
 (defun google-contacts--insert-data (contacts token)
   (if (not contacts)
       ;; No contacts, insert a string and return nil
@@ -501,6 +552,24 @@ otherwise just put the cdr of item."
                                (switch-to-buffer-other-window (google-contacts-make-buffer))
                                (google-contacts--insert-data contacts token)))
                          (list token))))
+
+;;;###autoload
+(defun google-contacts-async-api (query-string callback &rest cbargs)
+  "Search Google Contacts for QUERY-STRING and call CALLBACK with the result as a list.
+CBARGS are passed to CALLBACK."
+  (let ((token (google-contacts-oauth-token)))
+    (oauth2-url-retrieve token
+                         (google-contacts-build-full-feed-url query-string)
+                         #'(lambda (_status token callback cbargs)
+                             (let* ((buffer (current-buffer))
+                                    (contacts (with-temp-buffer
+                                                (insert (google-contacts-http-data buffer))
+                                                (xml-get-children
+                                                 (assoc 'feed (xml-parse-region
+                                                               (point-min) (point-max)))
+                                                 'entry))))
+                               (apply callback (google-contacts-to-list contacts token) cbargs)))
+                         (list token callback cbargs))))
 
 (provide 'google-contacts)
 
