@@ -4,6 +4,7 @@
 
 ;; Author: Julien Danjou <julien@danjou.info>
 ;; Keywords: comm
+;; URL: http://julien.danjou.info/projects/emacs-packages#google-contacts
 ;; Package-Requires: ((oauth2 "0.7"))
 
 ;; This file is NOT part of GNU Emacs.
@@ -34,13 +35,16 @@
 (require 'xml)
 
 (defgroup google-contacts nil
-  "Google Contacts.")
+  "Google Contacts."
+  :link '(url-link "http://julien.danjou.info/projects/emacs-packages#google-contacts")
+  :prefix "google-contacts-"
+  :group 'comm)
 
 (defconst google-contacts-oauth-client-id "209584303760.apps.googleusercontent.com"
   "Client ID for OAuth.")
 
 (defconst google-contacts-oauth-client-secret "5SR3nk46hplfl-nfsSSaMxKc"
-  "Google contacts secret key. Please don't tell anyone.
+  "Google contacts secret key.  Please don't tell anyone.
 I AM SERIOUS!")
 
 (defconst google-contacts-resource-url "https://www.google.com/m8/feeds"
@@ -160,6 +164,12 @@ If VALUE is not specified, we use the node value as a string."
 
 (set-keymap-parent google-contacts-mode-map widget-keymap)
 
+(defvar google-contacts-buffer-name "*Google Contacts*"
+  "Buffer name for Google Contacts.")
+
+(defvar google-contacts-query-string nil
+  "The query string used to make this query.")
+
 (defun google-contacts-refresh ()
   "Refresh results."
   (interactive)
@@ -197,9 +207,6 @@ If VALUE is not specified, we use the node value as a string."
     (when mail-address
       (compose-mail mail-address))))
 
-(defvar google-contacts-query-string nil
-  "The query string used to make this query.")
-
 (make-variable-buffer-local 'google-contacts-query-string)
 
 (define-derived-mode google-contacts-mode fundamental-mode "Google Contacts"
@@ -208,7 +215,7 @@ If VALUE is not specified, we use the node value as a string."
   (setq buffer-read-only t))
 
 (defvar google-contacts-history nil
-  "`google-contacts' prompt history")
+  "`google-contacts' prompt history.")
 
 (defcustom google-contacts-margin-width 36
   "The margin width in pixels."
@@ -273,9 +280,6 @@ If VALUE is not specified, we use the node value as a string."
                             (concat "\n" (google-contacts-margin-element)
                                     (make-string header-length ? ))
                             text))
-
-(defvar google-contacts-buffer-name "*Google Contacts*"
-  "Buffer name for Google Contacts.")
 
 (defun google-contacts-make-buffer ()
   "Prepare a buffer to output contacts information."
@@ -458,3 +462,5 @@ otherwise just put the cdr of item."
               "\n"))))
 
 (provide 'google-contacts)
+
+;;; google-contacts.el ends here
