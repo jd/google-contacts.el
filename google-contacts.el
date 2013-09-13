@@ -164,6 +164,18 @@ If VALUE is not specified, we use the node value as a string."
 
 (set-keymap-parent google-contacts-mode-map widget-keymap)
 
+(easy-menu-define google-contacts-mode-menu google-contacts-mode-map
+  "Google Contacts mode menu"
+  '("Google Contacts"
+    ["Next" google-contacts-next t]
+    ["Previous" google-contacts-previous t]
+    ["Send Mail" google-contacts-mail
+     :active (get-text-property (point) 'google-contacts-email)]
+    "---"
+    ["Search" google-contacts t]
+    ["Refresh" google-contacts-refresh t]
+    ["Quit" google-contacts-quit t]))
+
 (defvar google-contacts-buffer-name "*Google Contacts*"
   "Buffer name for Google Contacts.")
 
