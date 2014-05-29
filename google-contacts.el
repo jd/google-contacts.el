@@ -92,7 +92,7 @@ I AM SERIOUS!")
 (defun google-contacts-build-full-feed-url (&optional query-string)
   (concat google-contacts-feed-url
           "?v=3.0&max-results=" (number-to-string google-contacts-max-result)
-          (when query-string (concat "&q=" (url-hexify-string query-string)))))
+          (concat "&q=" (url-hexify-string query-string))))
 
 (defun google-contacts-fetch (&optional query-string token)
   "Fetch Google contacts data."
