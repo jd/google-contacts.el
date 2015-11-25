@@ -34,6 +34,7 @@
 (require 'widget)
 (require 'xml)
 (require 'cl-lib)
+(require 'oauth2)
 
 (defgroup google-contacts nil
   "Google Contacts."
