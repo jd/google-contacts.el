@@ -5,7 +5,7 @@
 ;; Author: Julien Danjou <julien@danjou.info>
 ;; Keywords: comm
 ;; URL: http://julien.danjou.info/projects/emacs-packages#google-contacts
-;; Package-Requires: ((oauth2 "0.10"))
+;; Package-Requires: ((oauth2 "0.10") (cl-lib "0.5"))
 
 ;; This file is NOT part of GNU Emacs.
 
@@ -33,6 +33,8 @@
 (require 'url-cache)
 (require 'widget)
 (require 'xml)
+(require 'cl-lib)
+(require 'oauth2)
 
 (defgroup google-contacts nil
   "Google Contacts."
@@ -149,9 +151,9 @@ Usually work, home…"
   "Build a list of values for each node matching NODE-NAME in NODE.
 Return a list of value in format ((relation-type . value) … ).
 If VALUE is not specified, we use the node value as a string."
-  `(loop for child in (xml-get-children ,node ,node-name)
-         collect (cons (xml-node-get-attribute-type child 'rel)
-                       ,(or value '(xml-node-child-string child)))))
+  `(cl-loop for child in (xml-get-children ,node ,node-name)
+            collect (cons (xml-node-get-attribute-type child 'rel)
+                          ,(or value '(xml-node-child-string child)))))
 
 (defvar google-contacts-mode-map
   (let ((map (make-sparse-keymap)))
@@ -311,10 +313,10 @@ This returns raw data as a string"
     ;; Only get the first contact, so use `car'
     (let ((contact (car (xml-get-children (google-contacts-data query-string token) 'entry))))
       (when contact
-        (let ((photo-url (loop for link in (xml-get-children contact 'link)
-                               when (string= (xml-get-attribute link 'rel)
-                                             "http://schemas.google.com/contacts/2008/rel#photo")
-                               return (xml-get-attribute link 'href))))
+        (let ((photo-url (cl-loop for link in (xml-get-children contact 'link)
+                                  when (string= (xml-get-attribute link 'rel)
+                                                "http://schemas.google.com/contacts/2008/rel#photo")
+                                  return (xml-get-attribute link 'href))))
           (google-contacts-http-data
            (google-contacts-url-retrieve photo-url token)))))))
 
@@ -326,10 +328,10 @@ A valid TOKEN is required to retrieve photo properties."
       (let* ((name-value (nth 0 (xml-get-children contact 'gd:name)))
              (organization-value (nth 0 (xml-get-children contact 'gd:organization)))
              (links (xml-get-children contact 'link))
-             (photo-url (loop for link in links
-                              when (string= (xml-get-attribute link 'rel)
-                                            "http://schemas.google.com/contacts/2008/rel#photo")
-                              return (xml-get-attribute link 'href))))
+             (photo-url (cl-loop for link in links
+                                 when (string= (xml-get-attribute link 'rel)
+                                               "http://schemas.google.com/contacts/2008/rel#photo")
+                                 return (xml-get-attribute link 'href))))
         (push `((fullname . ,(xml-node-child-string (nth 0 (xml-get-children name-value 'gd:fullName))))
                 (givenname . ,(xml-node-child-string (nth 0 (xml-get-children name-value 'gd:givenName))))
                 (familyname . ,(xml-node-child-string (nth 0 (xml-get-children name-value 'gd:familyName))))
@@ -390,10 +392,10 @@ A valid TOKEN is required to retrieve photo properties."
              (notes (xml-node-child-string (nth 0 (xml-get-children contact 'content))))
              ;; Links
              (links (xml-get-children contact 'link))
-             (photo-url (loop for link in links
-                              when (string= (xml-get-attribute link 'rel)
-                                            "http://schemas.google.com/contacts/2008/rel#photo")
-                              return (xml-get-attribute link 'href)))
+             (photo-url (cl-loop for link in links
+                                 when (string= (xml-get-attribute link 'rel)
+                                               "http://schemas.google.com/contacts/2008/rel#photo")
+                                 return (xml-get-attribute link 'href)))
              ;; Multiple values
              ;; Format is ((rel-type . data) (rel-type . data) … )
              (events (google-contacts-build-node-list contact 'gContact:event

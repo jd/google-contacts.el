@@ -41,7 +41,8 @@ was cached.")
 (defcustom google-contacts-message-use-primary t
   "Whether completion should only propose primary e-mail address.
 If set to nil, you'll have to chose yourself the e-mail address on completion."
-  :type 'boolean)
+  :type 'boolean
+  :group 'google-contacts)
 
 (defun google-contacts-message-complete-function ()
   "Function used in `completion-at-point-functions' in `message-mode'."

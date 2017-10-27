@@ -29,6 +29,8 @@
 
 ;;; Code:
 
+(require 'oauth2)
+
 (defconst google-oauth-auth-url "https://accounts.google.com/o/oauth2/auth"
   "Google OAuth2 server URL.")
 
