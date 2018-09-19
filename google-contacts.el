@@ -333,7 +333,7 @@ A valid TOKEN is required to retrieve photo properties."
                                                "http://schemas.google.com/contacts/2008/rel#photo")
                                  return (xml-get-attribute link 'href))))
         (push `((id . , (xml-node-child-string (nth 0 (xml-get-children contact 'id))))
-		(fullname . ,(xml-node-child-string (nth 0 (xml-get-children name-value 'gd:fullName))))
+                (fullname . ,(xml-node-child-string (nth 0 (xml-get-children name-value 'gd:fullName))))
                 (givenname . ,(xml-node-child-string (nth 0 (xml-get-children name-value 'gd:givenName))))
                 (familyname . ,(xml-node-child-string (nth 0 (xml-get-children name-value 'gd:familyName))))
 
@@ -364,8 +364,8 @@ A valid TOKEN is required to retrieve photo properties."
                                                                        (cons
                                                                         (xml-node-get-attribute-type child 'protocol)
                                                                         (cdr (assoc 'address (xml-node-attributes child))))))
-		(groups . , (google-contacts-build-node-list contact 'gContact:groupMembershipInfo
-							     (xml-get-attribute child 'href)))
+                (groups . , (google-contacts-build-node-list contact 'gContact:groupMembershipInfo
+                                                             (xml-get-attribute child 'href)))
                 (photo . ,(when token
                             (ignore-errors
                               (create-image
